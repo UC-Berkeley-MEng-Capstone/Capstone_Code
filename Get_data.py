@@ -5,7 +5,7 @@
 
 # #### Running all the videos - classifying objects - and pickle object_id of vehicles and pedestrains
 
-# In[6]:
+# In[122]:
 
 
 def classify(max_objects, df_positions):
@@ -37,7 +37,7 @@ def classify(max_objects, df_positions):
 #print x,y
 
 
-# In[7]:
+# In[123]:
 
 
 def SQL_to_Pandas(filename):
@@ -72,13 +72,25 @@ def SQL_to_Pandas(filename):
     #=============================================================
     # UNCOMMENT IF YOU WOULD LIKE TO COMPUTE THE AVERAGE OVER THE TRAJECTORIES
 
-    #df=df.groupby(['object','frame']).mean().reset_index()
-
+    df=df.groupby(['object','frame']).mean().reset_index()
+    #Dropping elements with nan
+    df=df.dropna(axis=0, how='any')
+    df_positions=df_positions.dropna(axis=0, how='any')
     
     return df, df_positions, max_objects
 
 
-# In[8]:
+# In[124]:
+
+
+# df=df.dropna(axis=0, how='any')
+# #Check if there are any values NaN in the database
+
+# print df['v_x'].isnull().any().any(), df['v_x'].isnull().sum().sum()
+# print df['v_y'].isnull().any().any(), df['v_y'].isnull().sum().sum()
+
+
+# In[137]:
 
 
 import sqlite3
@@ -97,69 +109,77 @@ path = 'C:\\Users\\admin\\Desktop\\Capstone\\Final SQL\\0206_1218\\'
 
 #for loop to go over all the databases
 for filename in os.listdir(path):
-
+#     if filename=='clip_1.sqlite':
     
-    [df, df_positions, max_objects]=SQL_to_Pandas(filename)
-    #=============================================================
-    ## UNCOMMENT TO PLOT
-    for i in range(max_objects):
+        [df, df_positions, max_objects]=SQL_to_Pandas(filename)
+        
+        #=============================================================
+        ## UNCOMMENT TO PLOT
+        for i in range(max_objects):
+            X0=pd.Series.tolist((df.loc[df['object'] == i])['x'])
+            Y0=pd.Series.tolist((df.loc[df['object'] == i])['y'])
+            
+            VX0=pd.Series.tolist((df.loc[df['object'] == i])['v_x'])
+            VY0=pd.Series.tolist((df.loc[df['object'] == i])['v_y'])
+            T0=np.linspace(0,len(VX0),len(VX0))
 
-        X0=pd.Series.tolist((df.loc[df['object'] == i])['x'])
-        Y0=pd.Series.tolist((df.loc[df['object'] == i])['y'])
-        plt.scatter(X0,Y0)
-        plt.xlabel("X positions")
-        plt.ylabel("Y positions")
-        plt.title("Trajectories of moving objects of"+ filename)
-    #plt.show()
-    #=============================================================
+#             plt.subplot(1,2,1)
+            plt.scatter(X0,Y0)
+            plt.xlabel("X positions")
+            plt.ylabel("Y positions")
 
-    ## --------------- Classification  --------------------------
+#             plt.subplot(1,2,2)
+#             plt.scatter(T0,VX0)
+#             #plt.scatter(T0,VY0)
+#             plt.xlabel("X speed")
+#             plt.ylabel("Y speed")
+            plt.title("Trajectories of moving objects of"+ filename)
+#         plt.show()
+        #=============================================================
 
-    veh_id,ped_id=classify(max_objects,df_positions)
+        ## --------------- Classification  --------------------------
+
+        veh_id,ped_id=classify(max_objects,df_positions)
 
 
-    #=============================================================
-    ## UNCOMMENT TO SEE THE VEHICLES AND PEDESTRIANS ID
+        #=============================================================
+        ## UNCOMMENT TO SEE THE VEHICLES AND PEDESTRIANS ID
 
-    #print veh_id,ped_id
-    
-    len_max=max(len(veh_id), len(ped_id))
-    veh_id_bis=[-1 for i in range(len_max)]
-    ped_id_bis=[-1 for i in range(len_max)]
-    for i in range(len(veh_id)):
-        veh_id_bis[i]=veh_id[i]
-    for i in range(len(ped_id)):
-        ped_id_bis[i]=ped_id[i]
-    #print veh_id_bis, ped_id_bis
-    #============================================================= 
+        #print veh_id,ped_id
 
-    pairing = {'veh_id': veh_id_bis, 'ped_id': ped_id_bis}
-    #df_pairing = pd.DataFrame(data=pairing)
-    #df_pairing.to_pickle("obj_ID_"+filename)
+        len_max=max(len(veh_id), len(ped_id))
+        veh_id_bis=[-1 for i in range(len_max)]
+        ped_id_bis=[-1 for i in range(len_max)]
+        for i in range(len(veh_id)):
+            veh_id_bis[i]=veh_id[i]
+        for i in range(len(ped_id)):
+            ped_id_bis[i]=ped_id[i]
+        #print veh_id_bis, ped_id_bis
+        #============================================================= 
+
+        pairing = {'veh_id': veh_id_bis, 'ped_id': ped_id_bis}
+        #df_pairing = pd.DataFrame(data=pairing)
+        #df_pairing.to_pickle("obj_ID_"+filename)
 
 
 # ## Pairing output
 
-# In[12]:
+# In[138]:
 
 
 inter=pd.read_csv('pairs_0206_1228A.csv')
 inter=inter.drop(['Unnamed: 0'], axis=1)
-i='clip_2'
-print i
-inter.loc[inter['clip'] == i]['veh_id'][1]
-inter.loc[inter['clip'] == i]['ped_id'][1]
 inter
-#print len(inter.index)
 
 
-# In[39]:
+# In[139]:
 
 
+k=0
+len_inter=0
 for i in range(len(inter.index)):
-    k=0
     [df, df_positions, max_objects]=SQL_to_Pandas(inter.iloc[i,0]+'.sqlite')
-    #print int(inter.loc[inter['clip'] == i]['veh_id'].values)
+
     veh_iden=int(inter.iloc[i,2])
     ped_iden=int(inter.iloc[i,1])
 
@@ -167,7 +187,7 @@ for i in range(len(inter.index)):
     pedestrian=df.loc[df['object'] == ped_iden]
 
     interaction = pd.merge(vehicle, pedestrian, how ='inner', on = ['frame'])
-    #print interaction
+    len_inter= len_inter+ len(interaction.index)
     interaction.columns = ['object1', 'frame', 'x1', 'y1', 'v_x1', 'v_y1', 'object2', 'x2', 'y2', 'v_x2', 'v_y2']
     if k==0:
         all_interactions=interaction.copy()
@@ -175,10 +195,13 @@ for i in range(len(inter.index)):
         frames = [all_interactions, interaction]
         all_interactions = pd.concat(frames)
     k=k+1
-print all_interactions.shape
+# print all_interactions.shape
+# print all_interactions.head()
+# print len(all_interactions.index)
+# print len_inter
 
 
-# In[42]:
+# In[140]:
 
 
 # calculate relative 
@@ -203,9 +226,33 @@ MLInput.head()
 MLInput.to_csv("Input1")
 
 
-# In[41]:
+# In[141]:
 
 
 MLInput.head()
 print len(MLInput.index)
+
+
+# In[144]:
+
+
+## Features: Angle, derivative of angle, time to pedestrian
+delta_time=15 #seconds
+
+MLInput2 = pd.DataFrame()
+Intermediate = pd.DataFrame()
+
+Intermediate['direction']=(MLInput['relative_Vx']>=0).astype(int)+ (MLInput['relative_Vx']<0).astype(int)*(-1)
+Intermediate['X_r']=MLInput['relative_X']*Intermediate['direction'] # Check the direction though!
+Intermediate['Y_r']=MLInput['relative_Y']*Intermediate['direction']
+
+#Create the new features
+MLInput2['alpha']=np.abs(np.arctan2(Intermediate['Y_r'],Intermediate['X_r']))*180/np.pi
+MLInput2['delta_alpha']=(MLInput2['alpha'].shift(1)-MLInput2['alpha'])/delta_time
+MLInput2['tt_ped']=abs(MLInput['relative_X']/all_interactions['v_x1'])
+MLInput2['brake']=MLInput['brake']
+MLInput2=MLInput2.dropna(axis=0, how='any')
+
+print MLInput2
+MLInput2.to_csv("Input2")
 
